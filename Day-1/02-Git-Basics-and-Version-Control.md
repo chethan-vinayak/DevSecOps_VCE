@@ -44,13 +44,6 @@ go back to any earlier version, and let many people work on the same project wit
 
 ### The four places your code lives
 
-![Animated Git workflow: working directory, staging area, local repo, remote repo](../images/reference/git-workflow.gif)
-<sub>Source: reference repo vickydevo/DevSecOps-WS</sub>
-
-<img src="https://github.com/user-attachments/assets/6f535013-9a08-4403-9c8b-ef5b39b96e6a" alt="The 4 stages in Git" width="900">
-
-<sub>Source: reference repo vickydevo/DevSecOps-WS (GitHub/2.stages_branches.md)</sub>
-
 | Area | Meaning | Analogy |
 |---|---|---|
 | **Working directory** | The files you see and edit | Items on your desk |
