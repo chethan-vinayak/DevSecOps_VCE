@@ -1,0 +1,9 @@
+﻿# Local credentials and workshop-generated files
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+workshop-secrets.txt
+config-backup.txt
+reports/
