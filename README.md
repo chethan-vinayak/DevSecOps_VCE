@@ -6,36 +6,6 @@
 
 ---
 
-## 📅 Schedule at a glance
-
-### Day 1 — DevOps to DevSecOps Fundamentals
-
-| Time | Session | Lab file |
-|---|---|---|
-| 09:30 – 10:15 | Inauguration, DevOps Culture & Introduction to DevSecOps | [Day-1/01](Day-1/01-DevOps-to-DevSecOps-Fundamentals.md) |
-| 10:15 – 11:15 | Git Basics & Version Control (hands-on) | [Day-1/02](Day-1/02-Git-Basics-and-Version-Control.md) |
-| 11:15 – 11:30 | ☕ Tea break | |
-| 11:30 – 12:30 | EC2 Setup & Linux Basics | [Day-1/03](Day-1/03-EC2-Setup-and-Linux-Basics.md) |
-| 12:30 – 13:30 | Application Deployment on EC2 (+ Maven essentials) | [Day-1/04](Day-1/04-Application-Deployment-on-EC2.md) |
-| 13:30 – 14:15 | 🍽️ Lunch | |
-| 14:15 – 15:15 | Docker Image Building, Containerization & DockerHub | [Day-1/05](Day-1/05-Docker-Containerization-and-DockerHub.md) |
-| 15:15 – 16:30 | Container Security Scanning using Trivy | [Day-1/06](Day-1/06-Container-Security-Scanning-Trivy.md) |
-
-### Day 2 — Pipeline Security & Code Analysis
-
-| Time | Session | Lab file |
-|---|---|---|
-| 09:30 – 10:30 | Secure CI/CD Pipeline Concepts + Jenkins Setup | [Day-2/01](Day-2/01-Secure-CICD-Pipeline-Concepts.md) |
-| 10:30 – 11:30 | SAST Theory & SonarQube Setup | [Day-2/02](Day-2/02-SAST-Theory-and-SonarQube-Setup.md) |
-| 11:30 – 11:45 | ☕ Tea break | |
-| 11:45 – 12:30 | SAST Hands-on with SonarQube | [Day-2/03](Day-2/03-SAST-Handson-SonarQube-Analysis.md) |
-| 12:30 – 13:00 | Secrets Detection & Remediation using Gitleaks | [Day-2/04](Day-2/04-Secrets-Detection-Gitleaks.md) |
-| 13:00 – 14:00 | 🍽️ Lunch *(start the vulnerability-database download before you leave — see Day-2/05 Part A)* | |
-| 14:00 – 14:45 | Dependency Scanning (SCA) using OWASP Dependency-Check | [Day-2/05](Day-2/05-OWASP-Dependency-Check.md) |
-| 14:45 – 16:30 | Final Lab: Securing a Complete Declarative Pipeline | [Day-2/06](Day-2/06-Secure-Declarative-Pipeline-Lab.md) |
-
----
-
 ## 🧭 The learning journey
 
 Every lab builds on the previous one. You work on **one application** the whole time — the
