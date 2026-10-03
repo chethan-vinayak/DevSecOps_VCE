@@ -199,7 +199,14 @@ sudo usermod -aG docker jenkins
 ```bash
 sudo systemctl restart jenkins
 ```
-
+**Start , disable and Enable Jenkins:
+```bash
+sudo systemctl status jenkins
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
+sudo systemctl stop jenkins
+sudo systemctl disable jenkins
+````
 > 🛡️ Remember Day 1: the `docker` group ≈ root on this host. We accept that for this single-purpose lab server.
 > In production, builds run on separate, disposable **agents**, not on the Jenkins controller.
 
