@@ -262,33 +262,26 @@ Jenkins pipelines are written in a **Groovy-based** language. The **declarative*
 easy to read:
 
 ```groovy
-pipeline {                                   // 1. Everything lives inside "pipeline"
-    agent any                                // 2. WHERE to run: any available Jenkins node
-
-    environment {                            // 3. Variables available to all stages
-        APP_NAME = 'workshop-app'
-    }
-
-    stages {                                 // 4. The ordered list of stages
-        stage('Build') {                     // 5. A named stage (a box in the Stage View)
-            steps {                          // 6. The actual commands
-                echo "Building ${APP_NAME}"  //    print a message
-                sh 'mvn -v'                  //    run a Linux shell command
-            }
-        }
-        stage('Test') {
+pipeline {
+    agent any
+    stages {
+        stage (" GIT CHECKOUT") {
             steps {
-                sh 'echo running tests'
+                echo " GIT CLONE IS FINISHED"
             }
-        }
-    }
-
-    post {                                   // 7. Runs AFTER all stages, depending on the result
-        success { echo 'Pipeline passed' }
-        failure { echo 'Pipeline failed' }
-        always  { echo 'Runs every time (cleanup, reports)' }
-    }
-}
+        }// stage1
+        stage (" Junit") {
+            steps {
+                echo " Junit IS FINISHED"
+            }
+        }// stage2
+        stage (" Build") {
+            steps {
+                echo " build IS FINISHED"
+            }
+        }// stage3
+    }//stages
+}//Pipeline
 ```
 
 | Keyword | Required? | Meaning |
@@ -314,7 +307,7 @@ pipeline {                                   // 1. Everything lives inside "pipe
 
 ---
 
-## 🛠️ Part F — Your first pipeline (and a failing gate) 🌐 Browser
+## 🛠️ Part F — Your first pipeline 
 
 **F1.** Dashboard → **New Item** → name: `hello-pipeline` → select **Pipeline** → **OK**.
 
@@ -332,40 +325,42 @@ pipeline {                                   // 1. Everything lives inside "pipe
 
 ```groovy
 pipeline {
-    agent any
-
-    environment {
-        GREETING = 'Hello DevSecOps'
-    }
+    agent any 
 
     stages {
-        stage('1. Info') {
+        stage("GIT-CHECKOUT") {
             steps {
-                echo "${GREETING} - build number ${BUILD_NUMBER}"
-                sh 'whoami'
-                sh 'java -version'
-                sh 'docker ps'
+                git branch: 'main', url: 'https://github.com/chethan-vinayak/workshop_app.git' 
             }
         }
-        stage('2. Security Gate (demo)') {
-            steps {
-                sh 'echo "Pretending to scan..."'
-                sh 'exit 0'
-            }
-        }
-        stage('3. Deploy (demo)') {
-            steps {
-                echo 'Deploying... (only reached if the gate passed)'
-            }
-        }
-    }
 
-    post {
-        success { echo 'All stages passed ✅' }
-        failure { echo 'Pipeline FAILED ❌ - nothing was deployed' }
-        always  { echo 'Post section: archive reports, clean up, notify' }
+        stage("JUnit-test") {
+            steps {
+                sh 'mvn clean test'
+            }
+        }
+
+        stage("Maven-Build") {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage("Docker-image") {
+            steps {
+                // Using sh to print the system user
+                sh 'echo "Running as user: $(whoami)"'
+                sh 'docker build -t workshop-app:version .'
+            }
+        }
+
+        stage("Docker-Run") {
+            steps {
+                sh 'docker run -d -p 8081:8081 --name workshopapp workshop-app:version'
+                }
+            }
+        }
     }
-}
 ```
 
 → **Save**.
@@ -383,44 +378,7 @@ pipeline {
 
 <sub>Source: Jenkins documentation — jenkins.io (CC BY-SA 4.0)</sub>
 
-
-✅ **Expected (excerpt):**
-
-```text
-Hello DevSecOps - build number 1
-+ whoami
-jenkins
-+ java -version
-openjdk version "21..."
-+ docker ps
-CONTAINER ID   IMAGE ...
-...
-Deploying... (only reached if the gate passed)
-All stages passed ✅
-Finished: SUCCESS
-```
-
-> 💡 `whoami` → **`jenkins`**: pipelines run as the `jenkins` user, **not** as `ubuntu`. Files, permissions and
-> tools must work for that user — remember this when something works in your terminal but fails in Jenkins.
-
-**F5.** Make the gate **fail**: **Configure** → in stage 2 change `sh 'exit 0'` to **`sh 'exit 1'`** → **Save** → **Build Now**.
-
-✅ **Expected:** build **#2** is **red**. Console Output:
-
-```text
-+ exit 1
-...
-Stage "3. Deploy (demo)" skipped due to earlier failure(s)
-Pipeline FAILED ❌ - nothing was deployed
-Finished: FAILURE
-```
-
-> 🚦 **This is exactly how every security gate works today.** Trivy, Gitleaks, Dependency-Check and the
-> SonarQube Quality Gate all signal "fail" with a **non-zero exit code**, and Jenkins refuses to continue.
-
-**F6.** Change it back to `exit 0` → **Save** → **Build Now** → green again.
-
-**F7.** Open the job page — with **Stage View** installed you'll see a coloured table of stages per build.
+**F5.** Open the job page — with **Stage View** installed you'll see a coloured table of stages per build.
 
 <img src="../images/reference/jenkins-stage-view.png" alt="Stage View: green and red builds per stage" width="900">
 
