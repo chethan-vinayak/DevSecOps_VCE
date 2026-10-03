@@ -196,6 +196,10 @@ docker ps
 **D1.** Start the container (copy the **whole** block — the `\` at line ends means "command continues on next line"):
 
 ```bash
+docker run -d --name sonarqube -p 9000:9000 sonarqube:community
+```
+
+```bash
 docker run -d --name sonarqube \
   -p 9000:9000 \
   --restart unless-stopped \
