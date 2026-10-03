@@ -4,8 +4,8 @@
 |---|---|
 | 🕘 **Session** | Part A: Day 2 · **12:55** (2 min, before lunch) · Parts B–F: **14:00 – 14:45** (45 min) |
 | ☁️ **Where** | **MAIN** terminal (`devsecops-main`) |
-| 🎯 **Objective** | Download the vulnerability database, scan the application's **third-party libraries**, understand the **CRITICAL Text4Shell** finding, **upgrade** the library and rescan until the dependency gate passes |
-| 🏁 **You will have** | A shared vulnerability database in `/opt/dc-data` (also used by Jenkins in Lab 06), an HTML/JSON report, and `commons-text` upgraded in your fork |
+| 🎯 **Objective** | Download the vulnerability database, scan the application's **third-party libraries**, understand the **CRITICAL Text4Shell** finding, **upgrade** the libraries you can, **document** the one you can't (a dated suppression) and rescan until the dependency gate passes |
+| 🏁 **You will have** | A shared vulnerability database in `/opt/dc-data` (also used by Jenkins in Lab 06), an HTML/JSON report, `commons-text` and Tomcat upgraded, and a documented suppression file, in your fork |
 
 ---
 
@@ -197,6 +197,10 @@ echo "Exit code: $?"
 > 🔎 You may also see other libraries listed with lower scores (e.g. MEDIUM/HIGH findings in transitive dependencies).
 > They are **reported** but don't break the build because they're below the `9.0` threshold.
 
+> 🆕 **The list depends on the day you run it.** New CVEs are published daily, so besides `commons-text` you may also
+> see CRITICAL findings for `spring-core` and `tomcat-embed-core` (libraries that Spring Boot brings in). Part E
+> handles all three cases.
+
 **D2.** Summarise the JSON report with `jq` — library → CVE → severity → score:
 
 ```bash
@@ -234,9 +238,17 @@ text** to `StringSubstitutor`, the attacker may run code or make the server cont
 
 ---
 
-## 🛠️ Part E — Fix: upgrade the library ☁️ MAIN
+## 🛠️ Part E — Fix: upgrade, override, or document ☁️ MAIN
 
-**E1.** See where the version is set:
+There are three kinds of CRITICAL finding, and **each needs a different fix**:
+
+| Finding | Why it appears | Fix |
+|---|---|---|
+| **`commons-text` 1.9** | A library **you** declared in `pom.xml` is old | **E1** — change its version |
+| **`tomcat-embed-core`** | Spring Boot pins a Tomcat version; newer CVEs were published after that Boot release | **E2** — override the version with a newer patch release |
+| **`spring-core`** (and other Spring jars) | The newest Spring 6.2.x **has no fixed release yet** | **E3** — document a **temporary suppression** (nothing to upgrade to) |
+
+**E1. Upgrade `commons-text`.**
 
 ```bash
 grep -n -B2 -A1 "<version>1.9</version>" pom.xml
@@ -248,8 +260,6 @@ NN-            <artifactId>commons-text</artifactId>
 NN:            <version>1.9</version>
 ```
 
-**E2.** Upgrade to a current, fixed version:
-
 ```bash
 sed -i 's#<version>1.9</version>#<version>1.15.0</version>#' pom.xml
 ```
@@ -260,19 +270,7 @@ grep -n -B2 "<version>1.15.0</version>" pom.xml
 
 ✅ shows `commons-text` with `1.15.0`.
 
-**E3.** Confirm Maven resolves the new version (and its transitive `commons-lang3`):
-
-```bash
-mvn -B -q dependency:tree -Dincludes=org.apache.commons
-```
-
-```text
-com.workshop:workshop-app:jar:1.0.0
-\- org.apache.commons:commons-text:jar:1.15.0:compile
-   \- org.apache.commons:commons-lang3:jar:3.x:compile
-```
-
-**E4.** Upgrades can break code — run the unit tests:
+Upgrades can break code — run the unit tests:
 
 ```bash
 mvn -B -q test
@@ -280,10 +278,86 @@ mvn -B -q test
 
 ✅ No errors.
 
-**E5.** Rescan:
+**E2. Override the Tomcat version.** First look for the newest 10.1.x release:
 
 ```bash
-mvn -B dependency-check:check -DautoUpdate=false
+curl -s https://repo1.maven.org/maven2/org/apache/tomcat/embed/tomcat-embed-core/maven-metadata.xml | grep "<version>10.1" | tail -3
+```
+
+The last line is the newest. Put it in `pom.xml` as a property (replace `10.1.60` below if yours is newer):
+
+```bash
+cp pom.xml pom.xml.bak
+```
+
+```bash
+sed -i '/<dependency-check.version>/a\        <tomcat.version>10.1.60</tomcat.version>' pom.xml
+```
+
+```bash
+mvn -B dependency:tree | grep tomcat-embed-core
+```
+
+✅ must show the new version (e.g. `10.1.60`), not `10.1.55`.
+
+> 💡 Spring Boot manages library versions through **properties** such as `tomcat.version`. Setting the property
+> in your own `pom.xml` **overrides** the Boot default — the fix for a *transitive* dependency.
+
+**E3. Record a temporary suppression for what has no fix.** Check first that no fixed release exists:
+
+```bash
+curl -s https://repo1.maven.org/maven2/org/springframework/spring-core/maven-metadata.xml | grep "<version>6.2" | tail -3
+```
+
+If the newest version is the one you already use, there is nothing to upgrade to. Do **not** lower the CVSS
+threshold and do **not** skip the scan — **document** the exception instead.
+
+Create the suppression file. Copy the **CVE numbers from your own `[ERROR]` line** for `spring-core` (they change
+as new CVEs are published; the ones below are examples from 3 Oct 2026):
+
+```bash
+cat > dependency-check-suppressions.xml <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <suppress until="2026-11-15Z">
+        <notes>No fixed Spring Framework 6.2.x release yet. Re-check on the next Spring Boot patch.</notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework/spring-.*@.*$</packageUrl>
+        <cve>CVE-2026-47884</cve>
+        <cve>CVE-2026-47892</cve>
+        <cve>CVE-2026-47891</cve>
+        <cve>CVE-2026-47890</cve>
+        <cve>CVE-2026-59313</cve>
+        <cve>CVE-2026-59283</cve>
+    </suppress>
+</suppressions>
+EOF
+```
+
+Tell the plugin to use it (adds three lines inside `<configuration>`, right after `<failBuildOnCVSS>`):
+
+```bash
+sed -i -e '/<failBuildOnCVSS>/a\                    <suppressionFiles>' -e '/<failBuildOnCVSS>/a\                        <suppressionFile>dependency-check-suppressions.xml</suppressionFile>' -e '/<failBuildOnCVSS>/a\                    </suppressionFiles>' pom.xml
+```
+
+```bash
+diff pom.xml.bak pom.xml
+```
+
+✅ shows **four** added lines: `tomcat.version` and the three `suppressionFiles` lines. (Made a mistake? Restore with
+`cp pom.xml.bak pom.xml` and redo E2–E3 once.)
+
+| Why this and not the alternatives? | |
+|---|---|
+| Lower `failBuildOnCVSS` / skip the scan | ❌ hides **every** future critical CVE too |
+| Jump to another Spring major version | ❌ Spring Boot 3.5 is built for Spring 6.2 — can break the app |
+| **Suppress the specific CVEs with a reason + `until` date** | ✅ the gate stays strict; after the date the build **fails again**, forcing a re-check |
+
+> ⚠️ A suppression is **not a fix**. It records a **temporary, reviewed risk acceptance**.
+
+**E4.** Rescan:
+
+```bash
+mvn -B clean verify dependency-check:check -DautoUpdate=false
 ```
 
 ✅ **Expected:**
@@ -292,16 +366,17 @@ mvn -B dependency-check:check -DautoUpdate=false
 [INFO] BUILD SUCCESS
 ```
 
-(Lower-severity findings may still be listed as warnings — they're tracked, not blocking.)
+Lower-severity findings (below 9.0) may still be listed as `[WARNING]` — they appear in the report but **don't block** the build.
+Anything still named in an `[ERROR]` line needs the same treatment: **upgrade if a fix exists, otherwise a dated suppression.**
 
-**E6.** Commit and push:
+**E5.** Commit and push — include the suppression file (Jenkins checks out the repo from GitHub in Lab 06, so it **must** be pushed):
 
 ```bash
-git add pom.xml
+git add pom.xml dependency-check-suppressions.xml
 ```
 
 ```bash
-git commit -m "Upgrade commons-text 1.9 -> 1.15.0 (fix CVE-2022-42889 Text4Shell)"
+git commit -m "Fix dependency CVEs: commons-text 1.15.0, Tomcat override, documented spring-core suppression"
 ```
 
 ```bash
@@ -313,13 +388,15 @@ git push
 
 ---
 
-## 🛠️ Part F — Handling false positives (read) 
+## 🛠️ Part F — Suppressions: false positives and "no fix yet" (read)
 
-Sometimes Dependency-Check maps a library to the wrong CPE and reports CVEs that don't apply. The professional
-response is **not** to raise the threshold, but to:
+You just wrote a suppression for **"no fix yet"**. The other classic reason is a **false positive**: Dependency-Check maps a
+library to the wrong CPE and reports CVEs that don't apply. In both cases the professional response is **not** to raise
+the threshold, but to:
 
-1. Verify (read the CVE + the *Evidence* section of the report).
-2. Add a **suppression** with a justification, e.g. in `dependency-check-suppressions.xml`:
+1. **Verify** (read the CVE + the *Evidence* section of the report).
+2. Add a **suppression** with a justification (`<notes>`), the exact CVEs, and — for temporary decisions — an `until` date.
+3. **Commit the file** and **review suppressions regularly** (`until` makes the build fail again when it expires).
 
 ```xml
 <suppress>
@@ -328,8 +405,6 @@ response is **not** to raise the threshold, but to:
    <cve>CVE-2099-12345</cve>
 </suppress>
 ```
-
-3. Reference it from the plugin configuration (`<suppressionFile>`), and review suppressions regularly.
 
 ---
 
@@ -341,7 +416,8 @@ response is **not** to raise the threshold, but to:
 | Keep the vulnerability DB updated (scheduled job) | A stale DB misses new CVEs |
 | Gate on a CVSS threshold | Turns policy into an automatic decision |
 | Upgrade + **run tests** | Fix the vulnerability without breaking the app |
-| Suppress only with justification | Audit trail; avoids "alert fatigue" |
+| Suppress only with justification **and an expiry date** | Audit trail; the build fails again when the date passes, so the risk is re-reviewed |
+| Override transitive versions with a property | Fixes libraries that Spring Boot pins, without changing the framework |
 | API keys from environment variables | No secrets in `pom.xml` |
 
 ---
@@ -356,7 +432,11 @@ response is **not** to raise the threshold, but to:
 | `Unable to continue dependency-check analysis` / `NoDataException: No documents exist` | Database download didn't finish | Check `~/dc-update.log`; re-run A3 (with the key exported) |
 | `Database is locked` / `The database ... is already in use` | Two scans running at once (e.g. background update still running) | Wait for the update to finish (`ps aux \| grep update-only`), then rescan |
 | Many `OSS Index` errors | OSS Index analyzer enabled without an account | Make sure you didn't remove `ossIndexAnalyzerEnabled=false` from the pom |
-| Build still fails after the upgrade | Another dependency ≥ 9.0, or `sed` didn't change the pom | Read the `[ERROR]` list; `git diff pom.xml` |
+| Build still fails after the `commons-text` upgrade | Other libraries (Tomcat, Spring) also have CRITICAL CVEs | Read the `[ERROR]` list; apply E2 (override) or E3 (suppression) |
+| `tomcat-embed-core` still shows the old version | The `tomcat.version` line is missing or outside `<properties>` | `grep -n tomcat.version pom.xml`; `mvn dependency:tree \| grep tomcat-embed-core` |
+| Suppression has no effect | File not created, or `<suppressionFiles>` missing from the pom, or CVE list incomplete | `ls dependency-check-suppressions.xml`; `grep -n suppression pom.xml`; copy CVEs from your own `[ERROR]` line |
+| Build passes locally but fails in Jenkins | `dependency-check-suppressions.xml` not pushed to GitHub | `git add` + commit + push the file |
+| Build fails again after a few weeks | The suppression's `until` date has passed | Check for a fixed release; upgrade, or renew the date with a new note |
 | `scp: ... No such file or directory` | Scan didn't produce a report / wrong path | Run D1 first; check `ls ~/workshop-app/target/*.html` |
 
 ---
